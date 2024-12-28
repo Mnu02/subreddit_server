@@ -39,20 +39,57 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/subreddits/:id/subscribe
-// (You might store this relationship in the User model or a separate Subscription model.)
-router.post('/:id/subscribe', async (req, res) => {
-  // Pseudocode:
-  // 1) Get the current user from Firebase token or session
-  // 2) Add the subreddit to the user's subscriptions, or handle however you want
-  // For now, let's just say "OK"
-  return res.json({ message: `Subscribed to subreddit ${req.params.id}` });
+// POST /api/subreddits/:subredditId/subscribe
+router.post('/:subredditId/subscribe', async (req, res) => {
+  try {
+    // 1) Identify the logged-in user (req.user._id or from token)
+    const userId = req.body.userId; // or however you're passing it
+    const subredditId = req.params.subredditId;
+
+    // 2) Verify the subreddit exists (optional but good practice)
+    const subreddit = await Subreddit.findById(subredditId);
+    if (!subreddit) {
+      return res.status(404).json({ error: 'Subreddit not found' });
+    }
+
+    // 3) Update the user's subscribedSubreddits if not already subscribed
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.subscribedSubreddits.includes(subredditId)) {
+      user.subscribedSubreddits.push(subredditId);
+      await user.save();
+    }
+
+    return res.json({ message: `Subscribed to subreddit ${subredditId}` });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
-// DELETE /api/subreddits/:id/subscribe
-router.delete('/:id/subscribe', async (req, res) => {
-  // Similar to the above logic
-  return res.json({ message: `Unsubscribed from subreddit ${req.params.id}` });
+// DELETE /api/subreddits/:subredditId/subscribe
+router.delete('/:subredditId/subscribe', async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    const subredditId = req.params.subredditId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Remove the subreddit from user's subscribedSubreddits
+    user.subscribedSubreddits = user.subscribedSubreddits.filter(
+      (id) => id.toString() !== subredditId
+    );
+    await user.save();
+
+    return res.json({ message: `Unsubscribed from subreddit ${subredditId}` });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

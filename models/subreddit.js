@@ -5,4 +5,4 @@ const SubredditSchema = new mongoose.Schema({
     description: {type: String}
 });
 
-module.exports = mongoose.model('Subreddit', SubredditSchema);
+module.exports = mongoose.model('subreddit', SubredditSchema);
