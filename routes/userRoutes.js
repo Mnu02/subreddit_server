@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
 const Post = require('../models/post');
-const Upvote = require('../models/upvote');
+const Upvote = require('../models/vote');
 const Subreddit = require('../models/subreddit');
 
 // GET /api/users/:userId
