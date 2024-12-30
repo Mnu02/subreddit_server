@@ -2,14 +2,49 @@
 const express = require('express');
 const router = express.Router();
 const Subreddit = require('../models/subreddit');
+const Post = require('../models/post');
 
 // GET /api/subreddits
 router.get('/', async (req, res) => {
   try {
-    const subreddits = await Subreddit.find().sort({ createdAt: -1 });
-    res.json(subreddits);
+    const subreddits = await Subreddit.find()
+      .select('name description subscribers')
+      .lean(); // lean() returns plain JavaScript objects instead of Mongoose documents
+
+    // Add subscriber count manually
+    const result = subreddits.map(subreddit => ({
+      ...subreddit,
+      subscriberCount: subreddit.subscribers ? subreddit.subscribers.length : 0
+    }));
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+
+// GET /api/subreddits/:subredditId
+// This only gets you one subreddit
+router.get('/:subredditId', async (req, res) => {
+  try {
+      const subreddit = await Subreddit.findById(req.params.subredditId)
+          .populate('subscribers', 'username');
+      
+      if (!subreddit) {
+          return res.status(404).json({ error: 'Subreddit not found' });
+      }
+
+      const posts = await Post.find({ subredditId: req.params.subredditId })
+          .populate('userId', 'username')
+          .sort({ createdAt: -1 });
+
+      res.json({
+          subreddit,
+          posts
+      });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
   }
 });
 
@@ -26,46 +61,28 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /api/subreddits/:id
-router.get('/:id', async (req, res) => {
-  try {
-    const subreddit = await Subreddit.findById(req.params.id);
-    if (!subreddit) {
-      return res.status(404).json({ error: 'Subreddit not found' });
-    }
-    res.json(subreddit);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
 // POST /api/subreddits/:subredditId/subscribe
 router.post('/:subredditId/subscribe', async (req, res) => {
   try {
-    // 1) Identify the logged-in user (req.user._id or from token)
-    const userId = req.body.userId; // or however you're passing it
-    const subredditId = req.params.subredditId;
+      const { userId } = req.body;
 
-    // 2) Verify the subreddit exists (optional but good practice)
-    const subreddit = await Subreddit.findById(subredditId);
-    if (!subreddit) {
-      return res.status(404).json({ error: 'Subreddit not found' });
-    }
+      if (!userId) {
+          return res.status(400).json({ error: 'User ID is required' });
+      }
 
-    // 3) Update the user's subscribedSubreddits if not already subscribed
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+      const subreddit = await Subreddit.findById(req.params.subredditId);
+      if (!subreddit) {
+          return res.status(404).json({ error: 'Subreddit not found' });
+      }
 
-    if (!user.subscribedSubreddits.includes(subredditId)) {
-      user.subscribedSubreddits.push(subredditId);
-      await user.save();
-    }
+      if (!subreddit.subscribers.includes(userId)) {
+          subreddit.subscribers.push(userId);
+          await subreddit.save();
+      }
 
-    return res.json({ message: `Subscribed to subreddit ${subredditId}` });
+      res.json({ message: 'Subscribed successfully', subreddit });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
   }
 });
 
