@@ -8,4 +8,4 @@ const SubredditSchema = new mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Subreddit', SubredditSchema);
+module.exports = mongoose.model('subreddit', SubredditSchema);
